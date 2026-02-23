@@ -10,7 +10,9 @@ def plot_compare_smoothed_rewards(
     labels=None,
     window=10,
     xlabel="Episode",
-    ylabel="Reward",
+    ylabel="Discounted Reward",
+    title=None,
+    save_path=None,
 ):
     """
     Plot comparison of multiple reward curves (mean ± std across seeds).
@@ -70,5 +72,10 @@ def plot_compare_smoothed_rewards(
 
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+    if title:
+        plt.title(title)
     plt.legend()
-    plt.show()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Saved plot to {save_path}")
+    plt.close()

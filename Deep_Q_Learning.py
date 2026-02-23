@@ -24,13 +24,15 @@ class Net(torch.nn.Module):
         self.hidden1 = torch.nn.Linear(in_channels, n_layer1)
         self.hidden2 = torch.nn.Linear(n_layer1, n_layer2)
         self.output = torch.nn.Linear(n_layer2, n_actions)
+        self.init_weights()
 
-        # Use default PyTorch initialization (Kaiming) - good for ReLU
-        # Or explicitly use Xavier:
-        # torch.nn.init.xavier_uniform_(self.hidden1.weight)
-        # torch.nn.init.xavier_uniform_(self.hidden2.weight)
-        # torch.nn.init.xavier_uniform_(self.output.weight)
-        pass  # Default init is fine
+    def init_weights(self):
+        torch.nn.init.uniform_(self.hidden1.weight, -0.001, 0.001)
+        torch.nn.init.uniform_(self.hidden2.weight, -0.001, 0.001)
+        torch.nn.init.uniform_(self.output.weight, -0.001, 0.001)
+        torch.nn.init.uniform_(self.hidden1.bias, -0.001, 0.001)
+        torch.nn.init.uniform_(self.hidden2.bias, -0.001, 0.001)
+        torch.nn.init.uniform_(self.output.bias, -0.001, 0.001)
 
     def forward(self, x):
         x = torch.relu(self.hidden1(x))
@@ -97,7 +99,7 @@ class Agent:
         self.rewards_list = []
         self.is_terminated = 0
         self.batch_size = 64
-        self.buffer_capacity = 50000
+        self.buffer_capacity = 100000
         self.in_channels = env.n_channels * 10 * 10
         self.num_actions = env.num_actions() 
         self.env = env
@@ -174,6 +176,7 @@ class Agent:
                 loss = self.loss_fn(predicted_action_value, bellman_target)
                 #print(f"requires_grad: {predicted_action_value.requires_grad}, grad_fn: {predicted_action_value.grad_fn}")
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10)
                 self.optimizer.step()
             if self.batch_style == 'uniform_batch':
                 (states, actions, rewards, next_states, is_terminated), _, _ = self.replay_buffer.uniform_buffer_sample()
@@ -184,6 +187,7 @@ class Agent:
                 self.optimizer.zero_grad()
                 loss = self.loss_fn(predicted_Qs, bellman_targets)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10)
                 self.optimizer.step()
             if self.batch_style == 'priority_batch':
                 (states, actions, rewards, next_states, is_terminated), indices, importance_weights = self.replay_buffer.priority_buffer_sample()
@@ -197,6 +201,7 @@ class Agent:
                 self.optimizer.zero_grad()
                 loss = (importance_weights * (predicted_Qs - bellman_targets) ** 2).mean()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.policy_net.parameters(), max_norm=10)
                 self.optimizer.step()
 
 if __name__ == "__main__":
@@ -213,9 +218,9 @@ if __name__ == "__main__":
     #                 [[...], [...], ...],   # method 2 seeds
     #                 ...
     #             ]
-    LR_list = [1e-4, 5e-4, 1e-3]
-    batch_style_list = ['sequential', 'uniform_batch', 'priority_batch']
-    num_seeds = 5
+    LR_list = [1e-3]#, 5e-4, 1e-3]
+    batch_style_list = ['priority_batch'] #['sequential', 'uniform_batch', 'priority_batch']
+    num_seeds = 1#5
     big_train_rewards_list = []  # Outer list over methods; each is list of reward-lists (one per seed)
 
     for batch_style in batch_style_list:
