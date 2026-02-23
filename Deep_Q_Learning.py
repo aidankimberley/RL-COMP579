@@ -1,8 +1,8 @@
-import gymnasium as gym
+#import gymnasium as gym
 import minatar
 #from minatar.gui import GUI
 from minatar import Environment
-import minatar.gym
+#import minatar.gym
 import random
 import torch
 import matplotlib.pyplot as plt
@@ -53,6 +53,8 @@ class Agent:
         self.target_net = Net(self.num_actions, self.in_channels)
         self.loss_fn = torch.nn.MSELoss() #squared L2 loss of predicted and bellman target
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr)
+        self.batch_style = 'sequential' #sequential, uniform_batch, priority_batch
+        self.transition_history = []
     def initialize(self):
         self.env.reset()
         self.is_terminated = 0
@@ -73,8 +75,10 @@ class Agent:
 
     def play(self):
         while self.num_episodes < self.max_episodes:
-            action, action_value = self.select_action(self.env.state())
+            state = self.env.state()
+            action, action_value = self.select_action(state)
             reward, self.is_terminated = self.env.act(action)
+            self.transition_history.append((state, action, reward, self.env.state(), self.is_terminated))
             self.update_neural_net(action_value, reward, self.env.state())
             self.G += reward
             if self.is_terminated:
