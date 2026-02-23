@@ -7,6 +7,7 @@ import random
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+from plotting import plot_compare_smoothed_rewards
 
 N_INPUTS = 400
 N_OUTPUTS = 4
@@ -79,10 +80,10 @@ class ReplayBuffer:
 
     def _build_batch(self, indices):
         batch = [self.transitions[i] for i in indices]
-        states = torch.from_numpy(np.array([t[0] for t in batch])).float()
+        states = torch.tensor(np.stack([t[0] for t in batch]), dtype=torch.float32)
         actions = torch.tensor([t[1] for t in batch], dtype=torch.long)
         rewards = torch.tensor([t[2] for t in batch], dtype=torch.float32)
-        next_states = torch.from_numpy(np.array([t[3] for t in batch])).float()
+        next_states = torch.tensor(np.stack([t[3] for t in batch]), dtype=torch.float32)
         is_terminated = torch.tensor([t[4] for t in batch], dtype=torch.float32)
         return states, actions, rewards, next_states, is_terminated
 
@@ -103,6 +104,7 @@ class Agent:
         self.eps = eps
         self.lr = lr
         self.gamma = gamma
+        self.discount = 1
         self.policy_net = Net(self.num_actions, self.in_channels)
         self.target_net = Net(self.num_actions, self.in_channels)
         self.loss_fn = torch.nn.MSELoss() #squared L2 loss of predicted and bellman target
@@ -115,6 +117,7 @@ class Agent:
         self.env.reset()
         self.is_terminated = 0
         self.G = 0
+        self.discount = 1
 
 
     def select_action(self, state):
@@ -136,7 +139,8 @@ class Agent:
             reward, self.is_terminated = self.env.act(action)
             self.replay_buffer.push((state, action, reward, self.env.state(), self.is_terminated), self.num_steps)
             self.update_neural_net(action_value, reward, self.env.state())
-            self.G += reward
+            self.G += reward * self.discount
+            self.discount *= self.gamma
             if self.is_terminated:
                 self.rewards_list.append(self.G)
                 if self.num_episodes % 10 == 0:
@@ -149,8 +153,6 @@ class Agent:
     def update_target_net(self):
         #set target = policy net weights
         self.target_net.load_state_dict(self.policy_net.state_dict())
-
-    
 
 
 
@@ -165,7 +167,7 @@ class Agent:
             if self.batch_style == 'sequential':
                 #sequatial update of policy net no buffer for now
                 with torch.no_grad():
-                    target_Q = self.target_net(torch.tensor(next_state.flatten(start_dim=1), dtype=torch.float32)).max().item() #max Q value of next state
+                    target_Q = self.target_net(torch.tensor(next_state.flatten(), dtype=torch.float32)).max().item() #max Q value of next state
                     bellman_target = torch.tensor(reward + self.gamma * target_Q * (1-self.is_terminated), dtype=torch.float32)
                 
                 self.optimizer.zero_grad()
@@ -197,15 +199,61 @@ class Agent:
                 loss.backward()
                 self.optimizer.step()
 
+if __name__ == "__main__":
+    env = Environment('breakout')
+    #run 5 seeds for each batch style
+    #run with LR = 1e-4, 5e-4, 1e-3
+    #plot these three curvers within one figure
+    #compare performance across 3 settings
 
-env = Environment('breakout')
+    #train_rewards_list : list[list[list[float]]]
+    #  Example:
+    #             [
+    #                 [[...], [...], ...],   # method 1 seeds
+    #                 [[...], [...], ...],   # method 2 seeds
+    #                 ...
+    #             ]
+    LR_list = [1e-4, 5e-4, 1e-3]
+    batch_style_list = ['sequential', 'uniform_batch', 'priority_batch']
+    num_seeds = 5
+    big_train_rewards_list = []  # Outer list over methods; each is list of reward-lists (one per seed)
+
+    for batch_style in batch_style_list:
+        methods_rewards = []
+        for LR in LR_list:
+            seed_rewards = []
+            for seed in range(num_seeds):
+                torch.manual_seed(seed)
+                np.random.seed(seed)
+                random.seed(seed)
+                env = Environment('breakout')
+                env.seed(seed)
+                agent = Agent(env, EPS, LR, GAMMA, batch_style)
+                agent.play()
+                seed_rewards.append(agent.rewards_list)
+            methods_rewards.append(seed_rewards)
+        big_train_rewards_list.append(methods_rewards)
+
+    import os
+    os.makedirs("plots", exist_ok=True)
+
+    lr_labels = [f"LR={lr}" for lr in LR_list]
+    for b_idx, batch_style in enumerate(batch_style_list):
+        plot_compare_smoothed_rewards(
+            big_train_rewards_list[b_idx],
+            labels=lr_labels,
+            window=100,
+            title=f"{batch_style}",
+            save_path=f"plots/{batch_style}.png",
+        )
+
 # print(env.state())
 # print(env.state().shape)
 
-agent = Agent(env, EPS, LR, GAMMA, batch_style='priority_batch')
-# print("num actions", agent.num_actions)
-# print("in channels", agent.in_channels)
-agent.play()
+# agent = Agent(env, EPS, LR, GAMMA, batch_style='priority_batch')
+# # print("num actions", agent.num_actions)
+# # print("in channels", agent.in_channels)
+# agent.play()
 
 # plt.plot(agent.rewards_list)
 # plt.show()
