@@ -13,7 +13,7 @@ GAMMA = 0.99
 EPS = 0.05
 
 class REINFORCE_Agent:
-    def __init__(self, env, eps, lr, gamma):
+    def __init__(self, env, eps=0.05, lr=1e-4, gamma=0.99):
         self.env = env
         self.eps = eps
         self.state = None
@@ -58,14 +58,14 @@ class REINFORCE_Agent:
     def play(self):
         while self.num_episodes < self.max_episodes:
             action, log_prob = self.select_action(self.state)
-            self.state, reward, terminated, _, _ = self.env.step(action)
+            self.state, reward, terminated, truncated, _ = self.env.step(action)
             self.G += reward * self.discount
             self.discount *= self.gamma
             self.reward_list.append(reward)
             self.action_list.append(action)
             self.state_list.append(self.state)
             self.log_prob_list.append(log_prob)
-            if terminated:
+            if terminated or truncated:
                 if self.num_episodes % 50 == 0:
                     print(f"Episode {self.num_episodes} finished with discounted reward {self.G:.2f}")
                 self.discounted_reward_list.append(self.G)
@@ -151,14 +151,14 @@ class REINFORCE_Agent_with_Baseline:
     def play(self):
         while self.num_episodes < self.max_episodes:
             action, log_prob = self.select_action(self.state)
-            self.state, reward, terminated, _, _ = self.env.step(action)
+            self.state, reward, terminated, truncated, _ = self.env.step(action)
             self.G += reward * self.discount
             self.discount *= self.gamma
             self.reward_list.append(reward)
             self.action_list.append(action)
             self.state_list.append(self.state)
             self.log_prob_list.append(log_prob)
-            if terminated:
+            if terminated or truncated:
                 if self.num_episodes % 50 == 0:
                     print(f"Episode {self.num_episodes} finished with discounted reward {self.G:.2f}")
                 self.discounted_reward_list.append(self.G)
@@ -205,9 +205,8 @@ Temperature = 10.0
 env = gym.make('CartPole-v1')
 state, info = env.reset()
 
-agent = REINFORCE_Agent_with_Baseline(env, EPS)
+agent = REINFORCE_Agent(env, EPS)
 agent.play()
-print(agent.discounted_reward_list)
 plt.plot(agent.discounted_reward_list)
 plt.show()
 
