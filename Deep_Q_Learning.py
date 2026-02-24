@@ -10,7 +10,7 @@ import numpy as np
 from plotting import plot_compare_smoothed_rewards
 
 N_INPUTS = 400
-N_OUTPUTS = 4
+#N_OUTPUTS = 3
 LR = 1e-3
 GAMMA = 0.99
 EPS = 0.05
@@ -206,6 +206,9 @@ class Agent:
 
 if __name__ == "__main__":
     env = Environment('breakout')
+    print("num actions", env.num_actions())
+    print("in channels", env.n_channels)
+
     #run 5 seeds for each batch style
     #run with LR = 1e-4, 5e-4, 1e-3
     #plot these three curvers within one figure
@@ -219,7 +222,7 @@ if __name__ == "__main__":
     #                 ...
     #             ]
     LR_list = [1e-3]#, 5e-4, 1e-3]
-    batch_style_list = ['priority_batch'] #['sequential', 'uniform_batch', 'priority_batch']
+    batch_style_list = ['sequential'] #['sequential', 'uniform_batch', 'priority_batch']
     num_seeds = 1#5
     big_train_rewards_list = []  # Outer list over methods; each is list of reward-lists (one per seed)
 

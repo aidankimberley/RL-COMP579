@@ -13,7 +13,7 @@ GAMMA = 0.99
 EPS = 0.05
 
 class REINFORCE_Agent:
-    def __init__(self, env, eps=0.05, lr=1e-4, gamma=0.99):
+    def __init__(self, env, eps=0.05, lr=1e-3, gamma=0.99):
         self.env = env
         self.eps = eps
         self.state = None
@@ -49,21 +49,21 @@ class REINFORCE_Agent:
         self.discount = 1
     
     def select_action(self, state):
-        logits = self.policy_net(torch.tensor(state, dtype=torch.float32)) / self.Temperature
-        boltzmann_action_distribution = torch.softmax(logits, dim=0)
-        action = torch.multinomial(boltzmann_action_distribution, num_samples=1)
-        log_prob = torch.log(boltzmann_action_distribution[action])
-        return action.item(), log_prob
+        state_t = torch.tensor(state, dtype=torch.float32)
+        log_probs = torch.log_softmax(self.policy_net(state_t) / self.Temperature, dim=0)
+        probs = torch.exp(log_probs)
+        action = torch.multinomial(probs, num_samples=1)
+        return action.item(), log_probs[action]
     
     def play(self):
         while self.num_episodes < self.max_episodes:
+            self.state_list.append(self.state.copy())
             action, log_prob = self.select_action(self.state)
             self.state, reward, terminated, truncated, _ = self.env.step(action)
             self.G += reward * self.discount
             self.discount *= self.gamma
             self.reward_list.append(reward)
             self.action_list.append(action)
-            self.state_list.append(self.state)
             self.log_prob_list.append(log_prob)
             if terminated or truncated:
                 if self.num_episodes % 50 == 0:
@@ -142,21 +142,21 @@ class REINFORCE_Agent_with_Baseline:
         self.discount = 1
     
     def select_action(self, state):
-        logits = self.policy_net(torch.tensor(state, dtype=torch.float32)) / self.Temperature
-        boltzmann_action_distribution = torch.softmax(logits, dim=0)
-        action = torch.multinomial(boltzmann_action_distribution, num_samples=1)
-        log_prob = torch.log(boltzmann_action_distribution[action])
-        return action.item(), log_prob
+        state_t = torch.tensor(state, dtype=torch.float32)
+        log_probs = torch.log_softmax(self.policy_net(state_t) / self.Temperature, dim=0)
+        probs = torch.exp(log_probs)
+        action = torch.multinomial(probs, num_samples=1)
+        return action.item(), log_probs[action]
     
     def play(self):
         while self.num_episodes < self.max_episodes:
+            self.state_list.append(self.state.copy())
             action, log_prob = self.select_action(self.state)
             self.state, reward, terminated, truncated, _ = self.env.step(action)
             self.G += reward * self.discount
             self.discount *= self.gamma
             self.reward_list.append(reward)
             self.action_list.append(action)
-            self.state_list.append(self.state)
             self.log_prob_list.append(log_prob)
             if terminated or truncated:
                 if self.num_episodes % 50 == 0:
@@ -200,21 +200,44 @@ class REINFORCE_Agent_with_Baseline:
 
 
 
-#VERIFY CODE
-Temperature = 10.0
-env = gym.make('CartPole-v1')
-state, info = env.reset()
 
-agent = REINFORCE_Agent(env, EPS)
-agent.play()
-plt.plot(agent.discounted_reward_list)
-plt.show()
 
-# print(state.shape)
-# print(env.action_space.n)
+if __name__ == "__main__":
+    import os
+    import numpy as np
+    import random
+    from plotting import plot_compare_smoothed_rewards
 
-# network = Net(N_OUTPUTS, N_INPUTS)
-# logits = network(torch.tensor(state, dtype=torch.float32)) / Temperature
-# boltzmann_action_distribution = torch.softmax(logits,dim=0)
-# action = torch.multinomial(boltzmann_action_distribution, num_samples=1)
-# print(action.item())
+    num_seeds = 5
+    os.makedirs("plots", exist_ok=True)
+
+    base_seed_rewards = []
+    baseline_seed_rewards = []
+
+    for seed in range(num_seeds):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        env = gym.make('CartPole-v1')
+        agent = REINFORCE_Agent(env, EPS)
+        agent.play()
+        base_seed_rewards.append(agent.discounted_reward_list)
+        print(f"Base REINFORCE seed {seed} done")
+
+    for seed in range(num_seeds):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        env = gym.make('CartPole-v1')
+        agent = REINFORCE_Agent_with_Baseline(env, EPS)
+        agent.play()
+        baseline_seed_rewards.append(agent.discounted_reward_list)
+        print(f"REINFORCE+Baseline seed {seed} done")
+
+    plot_compare_smoothed_rewards(
+        [base_seed_rewards, baseline_seed_rewards],
+        labels=["REINFORCE", "REINFORCE + Baseline"],
+        window=50,
+        title="REINFORCE vs REINFORCE + Baseline (CartPole-v1)",
+        save_path="plots/reinforce_comparison.png",
+    )
