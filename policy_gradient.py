@@ -181,7 +181,7 @@ class REINFORCE_Agent_with_Baseline:
             value = self.value_net(torch.tensor(state, dtype=torch.float32)).squeeze()
             advantage = returns - value.detach().item()
             policy_loss -= advantage * log_prob
-            value_loss += (value - returns) ** 2
+            value_loss += 1/2*(value - returns) ** 2 #MSE loss
         self.policy_optimizer.zero_grad()
         (policy_loss / n).backward()
         self.policy_optimizer.step()
