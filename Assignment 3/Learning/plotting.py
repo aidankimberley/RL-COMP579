@@ -1,3 +1,6 @@
+# Plotting utilities for COMP579 Assignment 3.
+# Compare related experiments (e.g., different hyperparameters) in one plot.
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -5,13 +8,36 @@ import matplotlib.pyplot as plt
 def plot_compare_smoothed_rewards(
     train_rewards_list,
     labels=None,
-    window=50,
+    window=10,
     xlabel="Episode",
-    ylabel="Average Reward",
+    ylabel="Discounted Reward",
     title=None,
+    save_path=None,
 ):
     """
-    Clean, report-ready comparison plot (mean ± std).
+    Plot comparison of multiple reward curves (mean ± std across seeds).
+
+    Args:
+        train_rewards_list : list[list[list[float]]]
+            Outer list over methods.
+            Each element is a list over seeds,
+            where each seed is a reward sequence.
+
+            Example:
+                [
+                    [[...], [...], ...],   # method 1 seeds
+                    [[...], [...], ...],   # method 2 seeds
+                    ...
+                ]
+
+        labels : list[str] or None
+            Labels for each curve. If None, default names are used.
+
+        window : int
+            Moving-average smoothing window.
+
+        xlabel : str
+        ylabel : str
     """
 
     if labels is None:
@@ -33,26 +59,23 @@ def plot_compare_smoothed_rewards(
 
     stats = [compute_stats(tr) for tr in train_rewards_list]
 
-    # Align lengths across methods
+    # align lengths across methods
     min_len = min(len(avg) for avg, _ in stats)
     x = np.arange(min_len)
-
-    plt.figure(figsize=(8, 5))
 
     for (avg, std), label in zip(stats, labels):
         avg = avg[:min_len]
         std = std[:min_len]
 
-        plt.plot(x, avg, linewidth=2.5, label=label)
-        plt.fill_between(x, avg - std, avg + std, alpha=0.2)
+        plt.plot(x, avg, label=label)
+        plt.fill_between(x, avg - std, avg + std, alpha=0.3)
 
-    plt.xlabel(xlabel, fontsize=12)
-    plt.ylabel(ylabel, fontsize=12)
-
-    if title is not None:
-        plt.title(title, fontsize=13)
-
-    plt.legend(frameon=False)
-    plt.grid(alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    if title:
+        plt.title(title)
+    plt.legend()
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Saved plot to {save_path}")
+    plt.close()
