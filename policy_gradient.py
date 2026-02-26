@@ -13,7 +13,7 @@ GAMMA = 0.99
 EPS = 0.05
 
 class REINFORCE_Agent:
-    def __init__(self, env, eps=0.05, lr=1e-3, gamma=0.99):
+    def __init__(self, env, eps=0.05, lr=1e-3, gamma=0.99, temperature=10.0, anneal=True):
         self.env = env
         self.eps = eps
         self.state = None
@@ -25,7 +25,8 @@ class REINFORCE_Agent:
         self.num_steps = 0
         self.policy_net = Net(N_OUTPUTS, N_INPUTS)
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr)
-        self.Temperature = 10.0
+        self.Temperature = temperature
+        self.anneal = anneal
         self.reward_list = []
         self.log_prob_list = []
         self.state_list = []
@@ -90,7 +91,8 @@ class REINFORCE_Agent:
         self.optimizer.step()
         
     def update_temperature(self):
-        self.Temperature = max(0.5, self.Temperature * 0.99)
+        if self.anneal:
+            self.Temperature = max(0.5, self.Temperature * 0.99)
 
 
 
@@ -211,33 +213,64 @@ if __name__ == "__main__":
     num_seeds = 5
     os.makedirs("plots", exist_ok=True)
 
+    # --- Part (a): REINFORCE vs REINFORCE + Baseline ---
     base_seed_rewards = []
     baseline_seed_rewards = []
 
-    for seed in range(num_seeds):
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-        env = gym.make('CartPole-v1')
-        agent = REINFORCE_Agent(env, EPS)
-        agent.play()
-        base_seed_rewards.append(agent.discounted_reward_list)
-        print(f"Base REINFORCE seed {seed} done")
+    # for seed in range(num_seeds):
+    #     torch.manual_seed(seed)
+    #     np.random.seed(seed)
+    #     random.seed(seed)
+    #     env = gym.make('CartPole-v1')
+    #     agent = REINFORCE_Agent(env, EPS)
+    #     agent.play()
+    #     base_seed_rewards.append(agent.discounted_reward_list)
+    #     print(f"Base REINFORCE seed {seed} done")
 
-    for seed in range(num_seeds):
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        random.seed(seed)
-        env = gym.make('CartPole-v1')
-        agent = REINFORCE_Agent_with_Baseline(env, EPS)
-        agent.play()
-        baseline_seed_rewards.append(agent.discounted_reward_list)
-        print(f"REINFORCE+Baseline seed {seed} done")
+    # for seed in range(num_seeds):
+    #     torch.manual_seed(seed)
+    #     np.random.seed(seed)
+    #     random.seed(seed)
+    #     env = gym.make('CartPole-v1')
+    #     agent = REINFORCE_Agent_with_Baseline(env, EPS)
+    #     agent.play()
+    #     baseline_seed_rewards.append(agent.discounted_reward_list)
+    #     print(f"REINFORCE+Baseline seed {seed} done")
+
+    # plot_compare_smoothed_rewards(
+    #     [base_seed_rewards, baseline_seed_rewards],
+    #     labels=["REINFORCE", "REINFORCE + Baseline"],
+    #     window=50,
+    #     title="REINFORCE vs REINFORCE + Baseline (CartPole-v1)",
+    #     save_path="plots/reinforce_comparison.png",
+    # )
+
+    # --- Part (b): REINFORCE temperature comparison ---
+    temp_configs = [
+        (10.0, True,  "T=10→0.5 (anneal)"),
+        (0.1,  False, "T=0.1"),
+        (1.0,  False, "T=1.0"),
+        (10.0, False, "T=10.0"),
+    ]
+    methods_rewards = []
+
+    for T, do_anneal, label in temp_configs:
+        seed_rewards = []
+        for seed in range(num_seeds):
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            random.seed(seed)
+            env = gym.make('CartPole-v1')
+            agent = REINFORCE_Agent(env, EPS, temperature=T, anneal=do_anneal)
+            agent.play()
+            seed_rewards.append(list(agent.discounted_reward_list))
+            print(f"{label} seed {seed} done")
+        methods_rewards.append(seed_rewards)
 
     plot_compare_smoothed_rewards(
-        [base_seed_rewards, baseline_seed_rewards],
-        labels=["REINFORCE", "REINFORCE + Baseline"],
+        methods_rewards,
+        labels=[label for _, _, label in temp_configs],
         window=50,
-        title="REINFORCE vs REINFORCE + Baseline (CartPole-v1)",
-        save_path="plots/reinforce_comparison.png",
+        title="REINFORCE: Temperature Comparison (CartPole-v1)",
+        save_path="plots/reinforce_temperature.png",
     )
