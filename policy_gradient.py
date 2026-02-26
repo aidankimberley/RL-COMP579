@@ -217,33 +217,33 @@ if __name__ == "__main__":
     base_seed_rewards = []
     baseline_seed_rewards = []
 
-    # for seed in range(num_seeds):
-    #     torch.manual_seed(seed)
-    #     np.random.seed(seed)
-    #     random.seed(seed)
-    #     env = gym.make('CartPole-v1')
-    #     agent = REINFORCE_Agent(env, EPS)
-    #     agent.play()
-    #     base_seed_rewards.append(agent.discounted_reward_list)
-    #     print(f"Base REINFORCE seed {seed} done")
+    for seed in range(num_seeds):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        env = gym.make('CartPole-v1')
+        agent = REINFORCE_Agent(env, EPS)
+        agent.play()
+        base_seed_rewards.append(agent.discounted_reward_list)
+        print(f"Base REINFORCE seed {seed} done")
 
-    # for seed in range(num_seeds):
-    #     torch.manual_seed(seed)
-    #     np.random.seed(seed)
-    #     random.seed(seed)
-    #     env = gym.make('CartPole-v1')
-    #     agent = REINFORCE_Agent_with_Baseline(env, EPS)
-    #     agent.play()
-    #     baseline_seed_rewards.append(agent.discounted_reward_list)
-    #     print(f"REINFORCE+Baseline seed {seed} done")
+    for seed in range(num_seeds):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        env = gym.make('CartPole-v1')
+        agent = REINFORCE_Agent_with_Baseline(env, EPS)
+        agent.play()
+        baseline_seed_rewards.append(agent.discounted_reward_list)
+        print(f"REINFORCE+Baseline seed {seed} done")
 
-    # plot_compare_smoothed_rewards(
-    #     [base_seed_rewards, baseline_seed_rewards],
-    #     labels=["REINFORCE", "REINFORCE + Baseline"],
-    #     window=50,
-    #     title="REINFORCE vs REINFORCE + Baseline (CartPole-v1)",
-    #     save_path="plots/reinforce_comparison.png",
-    # )
+    plot_compare_smoothed_rewards(
+        [base_seed_rewards, baseline_seed_rewards],
+        labels=["REINFORCE", "REINFORCE + Baseline"],
+        window=50,
+        title="REINFORCE vs REINFORCE + Baseline (CartPole-v1)",
+        save_path="plots/reinforce_comparison.png",
+    )
 
     # --- Part (b): REINFORCE temperature comparison ---
     temp_configs = [
